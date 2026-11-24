@@ -206,6 +206,7 @@ def main():
     ap.add_argument("--since", help="예: 3d, 12h. 상태 파일 대신 이 범위를 본다")
     ap.add_argument("--role", choices=["mac", "backup"], default="mac",
                     help="backup은 Mac이 최근 15분 안에 돌았으면 건너뛴다 (GitHub Actions용)")
+    ap.add_argument("--force", action="store_true", help="backup이어도 Mac 실행 여부와 상관없이 돈다 (시험용)")
     args = ap.parse_args()
 
     cfg = load(CONFIG, {})
@@ -222,7 +223,7 @@ def main():
         log(str(e))
         print("처리 기록을 읽지 못해 건너뜀")
         return 1
-    if args.role == "backup":
+    if args.role == "backup" and not args.force:
         mac = state.get("mac_seen_at")
         if mac and t_now - parse(mac) < MAC_FRESH:
             print(f"Mac이 {mac}에 돌았으므로 건너뜀")

@@ -6,6 +6,11 @@ on:
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Mac이 돌고 있어도 실행 (시험용)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -35,7 +40,7 @@ jobs:
             echo "secret이 아직 다 등록되지 않아 건너뜀"
             exit 0
           fi
-          python3 notify.py --role backup || echo "notify.py 실패"
+          python3 notify.py --role backup ${{ inputs.force && '--force' || '' }} || echo "notify.py 실패"
 
       # 공개 저장소는 60일 동안 활동이 없으면 예약 실행이 멈춘다. 40일마다 빈 커밋을 남긴다.
       - name: keepalive
