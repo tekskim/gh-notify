@@ -199,6 +199,25 @@ def save(state):
         raise RuntimeError(f"Gist 쓰기 실패: {r.stderr.strip()[:200]}")
 
 
+def check():
+    """공개 로그에 남아도 되도록 제목·저장소 이름 없이 건수만 찍는다."""
+    since = now() - dt.timedelta(days=3)
+    me = gh("user")["login"]
+    notes = gh(f"notifications?all=true&since={iso(since)}&per_page=50", paginate=True)
+    owners = {}
+    ok = fail = 0
+    for n in notes:
+        owner = n["repository"]["owner"]["type"]
+        owners[owner] = owners.get(owner, 0) + 1
+        try:
+            human_activity(n, since, me)
+            ok += 1
+        except Exception:
+            fail += 1
+    print(f"최근 3일 알림 {len(notes)}건 (소유자 유형별 {owners}) · 댓글 조회 성공 {ok} · 실패 {fail}")
+    return 0 if fail == 0 and notes else 1
+
+
 def main():
     global GIST_ID
     ap = argparse.ArgumentParser()
@@ -207,7 +226,12 @@ def main():
     ap.add_argument("--role", choices=["mac", "backup"], default="mac",
                     help="backup은 Mac이 최근 15분 안에 돌았으면 건너뛴다 (GitHub Actions용)")
     ap.add_argument("--force", action="store_true", help="backup이어도 Mac 실행 여부와 상관없이 돈다 (시험용)")
+    ap.add_argument("--check", action="store_true",
+                    help="권한 점검. 최근 3일 알림을 읽고 댓글 조회가 되는지 건수만 찍는다. 보내지도 저장하지도 않는다")
     args = ap.parse_args()
+
+    if args.check:
+        return check()
 
     cfg = load(CONFIG, {})
     GIST_ID = os.environ.get("GH_NOTIFY_GIST") or cfg.get("gist_id")
