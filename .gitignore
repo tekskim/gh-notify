@@ -1,0 +1,8 @@
+# 이 폴더에는 webhook 주소(config.json)와 로그가 있다. 올릴 파일만 골라서 허용한다.
+*
+!.gitignore
+!notify.py
+!README.md
+!.github/
+!.github/workflows/
+!.github/workflows/backup.yml

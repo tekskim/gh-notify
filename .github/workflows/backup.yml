@@ -1,0 +1,50 @@
+name: backup
+
+# Mac이 잠들어 있을 때 대신 GitHub 알림을 확인한다.
+# Mac이 최근 15분 안에 돌았으면 notify.py가 바로 끝낸다.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gh-notify
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      # 공개 저장소라 실행 로그도 공개된다. notify.py는 건수만 출력한다.
+      # 실패해도 매번 실패 메일이 오지 않도록 이 단계는 항상 성공으로 끝낸다.
+      # GitHub 조회가 실패하면 notify.py가 하루 한 번 Slack에 경고를 보낸다.
+      - name: notify
+        env:
+          GH_TOKEN: ${{ secrets.GH_NOTIFY_TOKEN }}
+          GH_NOTIFY_GIST: ${{ secrets.GH_NOTIFY_GIST }}
+          GH_NOTIFY_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          GH_NOTIFY_HOME: ${{ runner.temp }}/gh-notify
+        run: |
+          if [ -z "$GH_TOKEN" ] || [ -z "$GH_NOTIFY_GIST" ] || [ -z "$GH_NOTIFY_WEBHOOK" ]; then
+            echo "secret이 아직 다 등록되지 않아 건너뜀"
+            exit 0
+          fi
+          python3 notify.py --role backup || echo "notify.py 실패"
+
+      # 공개 저장소는 60일 동안 활동이 없으면 예약 실행이 멈춘다. 40일마다 빈 커밋을 남긴다.
+      - name: keepalive
+        if: github.event_name == 'schedule'
+        run: |
+          last=$(git log -1 --format=%ct)
+          if [ $(( $(date +%s) - last )) -gt $(( 40 * 86400 )) ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit --allow-empty -m "chore: keepalive"
+            git push
+          fi
